@@ -2362,7 +2362,7 @@ generate_tpm2_predictions_pcr_oracle()
 
 	all_pcrs=$(get_pcrs)
 	if [ -z "$all_pcrs" ]; then
-		warn "PCR Oracle configured but not enrolled in any LUKS header"
+		warn "pcr-oracle configured but not enrolled in any LUKS header"
 		return 0
 	fi
 
@@ -2839,13 +2839,21 @@ enroll()
 
 		if ! have_pcrlock && have_pcr_oracle; then
 			generate_rsa_key
+			update_predictions=1
 		fi
 
-		# During the initial enrollment it is expected that
-		# for systemd-pcrlock the recovery PIN will be
-		# extracted from the %u keyring "sdbootutil[-pin]"
-		# entry
-		generate_tpm2_predictions
+		# When using signed policy we read the PCR list from
+		# the LUKS2 header, so if pcr-oracle is used we need
+		# to first fo the enrollment and later generate the
+		# prediction
+		if have_pcrlock; then
+			# During the initial enrollment it is expected
+			# that for systemd-pcrlock the recovery PIN
+			# will be extracted from the %u keyring
+			# "sdbootutil[-pin]" entry.
+			generate_tpm2_predictions
+			update_predictions=
+		fi
 	fi
 
 	# For the PIN (tpm2+pin) or password (password), we can get it
