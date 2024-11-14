@@ -2276,7 +2276,7 @@ generate_tpm2_predictions_pcrlock()
 
 	# If the prediction fails, the system will ask for a password,
 	# but we can do a re-enrollment using the recovery PIN.  To
-	# register a recovery PIN the installer (disk-encryption-tool,
+	# register a recovery PIN the installer (sdbootutil-enroll,
 	# YaST) will call this script deploying in the %u keyring
 	# "sdbootutil[-pin]" entry.  For re-enrollments we can use the
 	# same entry, the PIN environment variable, or the
@@ -2447,6 +2447,13 @@ have_fido2()
 	[ -n "$(systemd-cryptenroll --fido2-device=list 2>/dev/null)" ]
 }
 
+have_slot()
+{
+	local dev="${1:?}"
+	local kind="${2:?}"
+	grep -q "$kind" < <(systemd-cryptenroll "$dev")
+}
+
 add_crypttab_option()
 {
 	# This version will share the same options for all crypto_LUKS
@@ -2531,14 +2538,12 @@ set_unlock_method()
 	keyid="$(keyctl id %user:cryptenroll 2> /dev/null)" || true
 	[ -z "$keyid" ] || return 0
 
-	local slots
-	slots=$(systemd-cryptenroll "$dev")
 	# Do not use TPM2 slot for enrolling TPM2
-	if [ "$enrollment" != "tpm2" ] && echo "$slots" | grep -q tpm2; then
+	if [ "$enrollment" != "tpm2" ] && have_slot "$dev" "tpm2"; then
 		echo "Unlocking using TPM2"
 		unlock_method="--unlock-tpm2-device=auto"
 		# Same for FIDO2
-	elif [ "$enrollment" != "fido2" ] && echo "$slots" | grep -q fido2; then
+	elif [ "$enrollment" != "fido2" ] && have_slot "$dev" "fido2"; then
 		echo "Unlocking using FIDO2"
 		unlock_method="--unlock-fido2-device=auto"
 	fi
@@ -2564,6 +2569,19 @@ enroll_pcrlock()
 	set_unlock_method "$dev"
 	if [ -n "$unlock_method" ]; then
 		extra_args+=("$unlock_method")
+	fi
+
+	# Enrolling the TPM2 can break the link between the recovery
+	# key and the new recovery PIN if there is a recovery key
+	# registered in the LUKS2 header, and it was not passed in any
+	# of the "%user:sdbootutil[-pin]" keyrings
+	local keyid keyid_int
+	keyid="$(keyctl id %user:sdbootutil 2> /dev/null)" || true
+	keyid_int="$(keyctl id %user:sdbootutil-pin 2> /dev/null)" || true
+
+	if [ -z "$keyid_int" ] && have_slot "$dev" "recovery"; then
+		warn "There is already a recovery key for the TPM2"
+		warn "The recovery key and the recovery PIN are now different"
 	fi
 
 	# Note that the PCRs are now not stored in the LUKS2 header
@@ -2720,9 +2738,7 @@ enroll_recovery_key()
 	# the recovery key the same as the recovery PIN.  But if the
 	# PIN is missing from the keyring, then we missed the
 	# synchronization and the key and the PIN are different.
-	local slots
-	slots=$(systemd-cryptenroll "$dev")
-	if [ -z "$keyid_int" ] && echo "$slots" | grep -q tpm2; then
+	if [ -z "$keyid_int" ] && have_slot "$dev" "tpm2"; then
 		warn "There is already a recovery PIN for the TPM2"
 		warn "The recovery key and the recovery PIN are now different"
 	fi
@@ -2911,6 +2927,15 @@ unenroll_device()
 
 	case "$arg_method" in
 		"tpm2"|"tpm2+pin")
+			# If we have a recovery slot then we have a
+			# recovery key.  sdbootutil takes care of
+			# linking both the recovery key and the
+			# recovery PIN, so unenrolling a recovery PIN
+			# will break this link.
+			if have_slot "$dev" "recovery"; then
+				warn "There is already a recovery key"
+				warn "The link between the recovery key and the recovery PIN is broken now"
+			fi
 			systemd-cryptenroll \
 				--wipe-slot=tpm2 \
 				"$dev"
@@ -2929,6 +2954,15 @@ unenroll_device()
 			;;
 
 		"recovery-key")
+			# If we have a TPM2 slot then we have a
+			# recovery PIN.  sdbootutil takes care of
+			# linking both the recovery key and the
+			# recovery PIN, so unenrolling a recovery key
+			# will break this link.
+			if have_slot "$dev" "tpm2"; then
+				warn "There is already a recovery PIN for the TPM2"
+				warn "The link between the recovery key and the recovery PIN is broken now"
+			fi
 			systemd-cryptenroll \
 				--wipe-slot=recovery \
 				"$dev"
