@@ -33,6 +33,10 @@ image=
 unlock_method=
 
 color_red=
+color_green=
+color_yellow=
+color_white=
+color_bu=
 color_end=
 # The shell is interactive and the colors haven't been disabled
 # forcefully or the shell is not interactive but the colors have been
@@ -44,6 +48,7 @@ if { [[ "$-" == *i* ]] \
 	color_red="\e[31m"
 	color_green="\e[32m"
 	color_yellow="\e[33m"
+	color_white="\e[1;37m"
 	color_bu="\e[1;4m" # bold underscore
 	color_end="\e[m"
 fi
@@ -2318,7 +2323,7 @@ generate_tpm2_predictions_pcrlock()
 		pin="${pin## }"
 		pin="${pin%% }"
 
-		echo "Recovery PIN: $pin"
+		echo -e "Recovery PIN: ${color_white}$pin${color_end}"
 		if [ -x /usr/bin/qrencode ]; then
 			echo "You can also scan it with your mobile phone:"
 			qrencode -t utf8i "$pin"
@@ -2657,7 +2662,7 @@ enroll_recovery_key()
 {
 	local dev="$1"
 
-	echo "Enrolling with recovery key: $dev"
+	echo "Enrolling with recovery key: $dev" 1>&2
 
 	local extra_args=()
 	set_unlock_method "$dev"
@@ -2729,7 +2734,7 @@ enroll_recovery_key()
 	fi
 
 	if [ -n "$generated_key" ]; then
-		echo "Recovery key: $key"
+		echo -e "Recovery key: ${color_white}$key${color_end}"
 		if [ -x /usr/bin/qrencode ]; then
 			echo "You can also scan it with your mobile phone:"
 			qrencode -t utf8i "$key"

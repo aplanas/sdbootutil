@@ -28,7 +28,7 @@ write_issue_file()
 		issuefile='/dev/stdout'
 	fi
 
-	echo "$recovery_key" > "$issuefile"
+	echo -ne "$recovery_key" > "$issuefile"
 	issue-generator
 }
 
