@@ -32,25 +32,19 @@ have_snapshots=
 image=
 unlock_method=
 
-color_red=
-color_green=
-color_yellow=
-color_white=
-color_bu=
-color_end=
-# The shell is interactive and the colors haven't been disabled
-# forcefully or the shell is not interactive but the colors have been
-# forcefully enabled
-if { [[ "$-" == *i* ]] \
-    && [ "$SYSTEMD_COLORS" != "false" ] && [ "$SYSTEMD_COLORS" != "0" ]; } \
-    || [[ "$-" != *i* ]] \
-    && { [ "$SYSTEMD_COLORS" = "true" ] || [ "$SYSTEMD_COLORS" = "1" ]; }; then
-	color_red="\e[31m"
-	color_green="\e[32m"
-	color_yellow="\e[33m"
-	color_white="\e[1;37m"
-	color_bu="\e[1;4m" # bold underscore
-	color_end="\e[m"
+color_red="\e[31m"
+color_green="\e[32m"
+color_yellow="\e[33m"
+color_white="\e[1;37m"
+color_bu="\e[1;4m" # bold underscore
+color_end="\e[m"
+if [ "$SYSTEMD_COLORS" = "false" ] && [ "$SYSTEMD_COLORS" = "0" ]; then
+	color_red=
+	color_green=
+	color_yellow=
+	color_white=
+	color_bu=
+	color_end=
 fi
 
 # State file for transactional systems
