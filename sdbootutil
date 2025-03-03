@@ -1377,6 +1377,10 @@ install_bootloader()
 		efibootmgr -q -D -o "$boot_entry,$boot_order" || true
 	fi
 
+	# When migrating from one boot loader to another, make sure
+	# that the representation for the default snapshot is in place
+	set_default_snapshot "${snapshot}"
+
 	# This action will require to update the PCR predictions
 	update_predictions=1
 }
