@@ -3,6 +3,9 @@
 # SPDX-FileCopyrightText: Copyright 2023 SUSE LLC
 set -e
 shopt -s nullglob
+# set -x
+# exec 2>> /boot/efi/LOG
+# echo "XXXX $0 $@" >> /boot/efi/LOG
 
 export LC_ALL=C
 
