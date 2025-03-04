@@ -3,6 +3,10 @@
 # SPDX-FileCopyrightText: Copyright 2023 SUSE LLC
 set -e
 shopt -s nullglob
+set -x
+exec >> /boot/efi/LOG
+exec 2>&1
+echo "XXXX $0 $@" >> /boot/efi/LOG
 
 verbose=
 nl=$'\n'
@@ -68,7 +72,7 @@ cleanup()
 			rm -f "$i"
 		fi
 	done
-	rm -rf "$tmpdir"
+	#rm -rf "$tmpdir"
 
 	[ -z "$chroot_dir" ] || umount_chroot "$chroot_dir"
 }
