@@ -16,6 +16,7 @@ arg_no_variables=
 arg_no_reuse_initrd=
 arg_no_random_seed=
 arg_portable=
+arg_secure_boot=
 arg_sync=
 arg_only_default=
 arg_default_snapshot=
@@ -100,6 +101,7 @@ helpandquit()
 		  --sync		Synchronize (update, downgrade) the bootloader
 		  --portable		Handle bootloader on portable devices
 		                        (also --removable possible)
+		  --secure-boot		When installing the bootloader, use the shim
 		  --only-default	Only list the default entry
 		  --default-snapshot	[SNAPSHOT] refers to the default snapshot
 		  --ask-key		Ask recovery Key when initial enrollment
@@ -1415,6 +1417,13 @@ list_devices()
 	done
 }
 
+is_shim_installed()
+{
+	[ ! -f "${boot_root}${boot_dst}/shim.efi" ] || return 0
+	! grep -q "UEFI SHIM" "${boot_root}${boot_dst}/BOOT${firmware_arch^^}.EFI" || return 0
+	return 1
+}
+
 is_bootable()
 {
 	local snapshot="$1"
@@ -1571,7 +1580,11 @@ install_bootloader()
 	drive="/dev/${drive##*/}"
 	read -r partno < "/sys/class/block/${blkpart##*/}"/partition
 
-	if [ -e "$prefix$shimdir/shim.efi" ]; then
+	if arg_secure_boot && [ ! -e "$prefix$shimdir/shim.efi" ]; then
+		warn "A secure boot installation cannot be done. The shim package is not installed"
+	fi
+
+	if arg_secure_boot && [ -e "$prefix$shimdir/shim.efi" ]; then
 		info "Installing $bldr_name with shim into $boot_root"
 		entry="$boot_dst/shim.efi"
 		for i in MokManager shim; do
@@ -2456,15 +2469,17 @@ generate_tpm2_predictions_pcrlock()
 	shift_component 600-gpt
 	pcrlock lock-gpt
 
-	# 630-shim-efi-application is not part of the pcrlock standards
-	# TODO: move to shim-pcrlock.rpm
-	shift_component 630-shim-efi-application
-	local entry="shim.efi"
-	[ -f "${boot_root}${boot_dst}/${entry}" ] || entry="BOOT${firmware_arch^^}.EFI"
-	pcrlock \
-		lock-pe \
-		--pcrlock=/var/lib/pcrlock.d/630-shim-efi-application.pcrlock.d/generated.pcrlock \
-		"${boot_root}${boot_dst}/${entry}"
+	if is_shim_installed; then
+		# 630-shim-efi-application is not part of the pcrlock
+		# standards TODO: move to shim-pcrlock.rpm
+		shift_component 630-shim-efi-application
+		local entry="shim.efi"
+		[ -f "${boot_root}${boot_dst}/${entry}" ] || entry="BOOT${firmware_arch^^}.EFI"
+		pcrlock \
+			lock-pe \
+			--pcrlock=/var/lib/pcrlock.d/630-shim-efi-application.pcrlock.d/generated.pcrlock \
+			"${boot_root}${boot_dst}/${entry}"
+	fi
 
 	# 640-boot-loader-efi-application is not part of the pcrlock
 	# standards
@@ -3500,6 +3515,7 @@ define_options() {
 		[all]=""
 		[sync]=""
 		[portable]=""
+		[secure-boot]=""
 		[removable]=""
 		[only-default]=""
 		[default-snapshot]=""
@@ -3553,6 +3569,7 @@ while true ; do
 		--sync) arg_sync=1; shift ;;
 		--portable) arg_portable=1; shift ;;
 		--removable) arg_portable=1; shift ;;
+		--secure-boot) arg_secure_boot=1; shift ;;
 		--only-default) arg_only_default=1; shift ;;
 		--default-snapshot) arg_default_snapshot=1; shift ;;
 		--ask-key|--ask-pin|--ask-pw) arg_ask_key_pin_or_pw=1; shift ;;
@@ -3657,6 +3674,10 @@ if [ "$1" != "install" ] && [ ! -d "${boot_root}${boot_dst}" ]; then
 fi
 
 dbg_var "boot_dst"
+
+if [ "$SECURE_BOOT" = "yes" ] || is_shim_installed; then
+	arg_secure_boot=1
+fi
 
 # Keep initial components before they are replaced by some actions
 # (new initrd, new entry, etc)
