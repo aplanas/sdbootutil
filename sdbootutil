@@ -3238,6 +3238,7 @@ generate_tpm2_predictions_pcrlock()
 
 	if [ "$pcrlock_status" -ne 0 ]; then
 		warn "Error creating the systemd-pcrlock policy!\n$(cat "$tmpfile")"
+		# Do not exit, as this function can be re-tried
 		return 1
 	elif echo "$output" | grep -q "recovery PIN"; then
 		local split
@@ -3262,7 +3263,7 @@ generate_tpm2_predictions_pcrlock()
 	# dracut-pcr-signature
 	[ -e /var/lib/systemd/pcrlock.json ] && \
 		cp /var/lib/systemd/pcrlock.json "${boot_root}${boot_dst}" && {
-			echo "NVIndex policy created"
+			info "NVIndex policy created"
 		}
 }
 
@@ -4245,7 +4246,7 @@ while true ; do
 		--esp-free-space) arg_esp_free_space="$2"; shift 2 ;;
 		--force) arg_force=1; shift ;;
 		--) shift ; break ;;
-		*) echo "Internal error!" ; exit 1 ;;
+		*) err "Internal error!" ;;
 	esac
 done
 
