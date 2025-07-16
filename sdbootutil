@@ -22,6 +22,11 @@ if [ -f "$DEBUG_LOG" ]; then
 	set -x
 fi
 
+exec 2> >(tee >(logger -p err -t $0))
+TEEPID_STDERR=$!
+exec 1> >(tee >(logger -t $0))
+TEEPID_STDOUT=$!
+
 nl=$'\n'
 shimdir="/usr/share/efi/$(uname -m)"
 arg_esp_path="$SYSTEMD_ESP_PATH"
@@ -97,6 +102,10 @@ cleanup()
 	rm -rf "$tmpdir"
 
 	[ -z "$chroot_dir" ] || umount_chroot "$chroot_dir"
+
+	exec 1>&- 2>&-
+	wait $TEEPID_STDOUT
+	wait $TEEPID_STDERR
 }
 trap cleanup EXIT
 
