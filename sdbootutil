@@ -22,10 +22,8 @@ if [ -f "$DEBUG_LOG" ]; then
 	set -x
 fi
 
-exec 2> >(tee >(logger -p err -t $0))
-TEEPID_STDERR=$!
-exec 1> >(tee >(logger -t $0))
-TEEPID_STDOUT=$!
+exec 4> >(systemd-cat -t "$(basename "$0")" -p info)
+exec 5> >(systemd-cat -t "$(basename "$0")" -p err)
 
 nl=$'\n'
 shimdir="/usr/share/efi/$(uname -m)"
@@ -102,10 +100,6 @@ cleanup()
 	rm -rf "$tmpdir"
 
 	[ -z "$chroot_dir" ] || umount_chroot "$chroot_dir"
-
-	exec 1>&- 2>&-
-	wait $TEEPID_STDOUT
-	wait $TEEPID_STDERR
 }
 trap cleanup EXIT
 
