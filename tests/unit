@@ -462,6 +462,27 @@ t_grubenv_full()
 	is "size" 1024 "$(stat -c %s "$workdir/grubenv")"
 }
 
+# get_timeout: the whole of it is the command line it builds, and
+# update-bootloader is replaced by a function to read it back
+
+t_get_timeout_delegates()
+{
+	load
+	update-bootloader() { echo "$*"; }
+
+	is "arguments" "--get-timeout" "$(get_timeout)"
+}
+
+t_get_timeout_no_variables()
+{
+	load
+	# shellcheck disable=SC2034  # read by the sourced library
+	arg_no_variables=1
+	update-bootloader() { echo "$*"; }
+
+	is "arguments" "--no-nvram --get-timeout" "$(get_timeout)"
+}
+
 ####### the runner #######
 
 run_case()
@@ -521,6 +542,8 @@ done <<-'EOF'
 	t_svr_no_system             status_version_row reports a system version that cannot be read
 	t_grubenv_size              grubenv_set writes a block of exactly 1024 bytes
 	t_grubenv_full              grubenv_set does not pad a block that is already full
+	t_get_timeout_delegates     get_timeout asks update-bootloader
+	t_get_timeout_no_variables  get_timeout turns --no-variables into --no-nvram
 EOF
 
 echo
