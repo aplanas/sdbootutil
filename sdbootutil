@@ -3439,39 +3439,12 @@ set_timeout()
 	update_predictions=1
 }
 
-get_timeout_sdboot()
-{
-	local val
-	if has_efivars && [ -z "$arg_no_variables" ]; then
-		val="$(bli_efi_var_get "LoaderConfigTimeout")"
-	fi
-	[ -n "$val" ] || val="$(loader_conf_get "timeout")"
-	[ "$val" = "menu-disabled" ] || [ "$val" = "menu-hidden" ] && val=0
-	[ "$val" = 4294967295 ] || [ "$val" = "menu-force" ] && val=-1
-	[ -z "$val" ] || echo "$val"
-}
-
-get_timeout_grub2_bls()
-{
-	local val
-	if has_efivars && [ -z "$arg_no_variables" ]; then
-		val="$(bli_efi_var_get "LoaderConfigTimeout")"
-	fi
-	[ -n "$val" ] || val="$(grubenv_get "timeout")"
-	[ "$val" = "menu-disabled" ] || [ "$val" = "menu-hidden" ] && val=0
-	[ "$val" = 4294967295 ] || [ "$val" = "menu-force" ] && val=-1
-	[ -z "$val" ] || echo "$val"
-}
-
 get_timeout()
 {
-	if is_sdboot; then
-		get_timeout_sdboot
-	elif is_grub2_bls; then
-		get_timeout_grub2_bls
-	else
-		err "Bootloader not detected"
-	fi
+	local no_nvram=()
+	[ -z "$arg_no_variables" ] || no_nvram=(--no-nvram)
+
+	update-bootloader "${no_nvram[@]}" --get-timeout
 }
 
 print_loader_path()
