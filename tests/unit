@@ -442,8 +442,10 @@ t_grubenv_size()
 	grubenv_set timeout 5
 	is "size after a second key" 1024 "$(stat -c %s "$workdir/grubenv")"
 
-	is "default" opensuse-tumbleweed-7.2.3-1-default-10 "$(grubenv_get default)"
-	is "timeout" 5 "$(grubenv_get timeout)"
+	# the padding has to leave both variables readable
+	is "default" opensuse-tumbleweed-7.2.3-1-default-10 \
+	   "$(sed -n 's/^default=//p' "$workdir/grubenv")"
+	is "timeout" 5 "$(sed -n 's/^timeout=//p' "$workdir/grubenv")"
 }
 
 # A block whose variables already fill it needs no padding at all, and
@@ -481,6 +483,36 @@ t_get_timeout_no_variables()
 	update-bootloader() { echo "$*"; }
 
 	is "arguments" "--no-nvram --get-timeout" "$(get_timeout)"
+}
+
+# get_default_entry: the same command line, plus the fall back to the
+# entry that boots when nothing is configured
+
+t_get_default_delegates()
+{
+	load
+	update-bootloader() { echo "$*"; }
+
+	is "arguments" "--get-default" "$(get_default_entry)"
+}
+
+t_get_default_no_variables()
+{
+	load
+	# shellcheck disable=SC2034  # read by the sourced library
+	arg_no_variables=1
+	update-bootloader() { echo "$*"; }
+
+	is "arguments" "--no-nvram --get-default" "$(get_default_entry)"
+}
+
+t_get_default_bootctl()
+{
+	load
+	update-bootloader() { :; }
+	get_default_bootctl() { echo "the-entry.conf"; }
+
+	is "entry" "the-entry.conf" "$(get_default_entry)"
 }
 
 ####### the runner #######
@@ -544,6 +576,9 @@ done <<-'EOF'
 	t_grubenv_full              grubenv_set does not pad a block that is already full
 	t_get_timeout_delegates     get_timeout asks update-bootloader
 	t_get_timeout_no_variables  get_timeout turns --no-variables into --no-nvram
+	t_get_default_delegates     get_default_entry asks update-bootloader
+	t_get_default_no_variables  get_default_entry turns --no-variables into --no-nvram
+	t_get_default_bootctl       get_default_entry falls back to the entry that boots
 EOF
 
 echo

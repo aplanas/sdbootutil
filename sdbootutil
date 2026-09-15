@@ -3129,15 +3129,6 @@ loader_conf_set()
 	fi
 }
 
-loader_conf_get()
-{
-	local key="${1:?}"
-	if [ -e "${esp_root}/loader/loader.conf" ]; then
-		IFS=' ' read -r key value < <(grep "^$key " "${esp_root}/loader/loader.conf")
-		echo -n "$value"
-	fi
-}
-
 grubenv_set()
 {
 	local key="${1:?}"
@@ -3165,16 +3156,6 @@ grubenv_set()
 	printf '%*s' "$filler" "" | tr ' ' '#' >> "$grubenv"
 
 	mv "$grubenv" "${esp_root}${esp_dst}/grubenv"
-}
-
-grubenv_get()
-{
-	local key="${1:?}"
-
-	if [ -e "${esp_root}${esp_dst}/grubenv" ]; then
-		IFS='=' read -r key value < <(grep "^$key=" "${esp_root}${esp_dst}/grubenv")
-		echo -n "$value"
-	fi
 }
 
 set_default_sdboot()
@@ -3274,37 +3255,17 @@ get_default_bootctl()
 	jq -r '.[] | select(.isDefault == true) | .id' < "$entryfile"
 }
 
-get_default_sdboot()
-{
-	local val
-	if has_efivars && [ -z "$arg_no_variables" ]; then
-		val="$(bli_efi_var_get "LoaderEntryDefault")"
-	fi
-	[ -n "$val" ] || val="$(loader_conf_get "default")"
-	[ -n "$val" ] || val="$(get_default_bootctl)"
-	[ -z "$val" ] || echo "$val"
-}
-
-get_default_grub2_bls()
-{
-	local val
-	if has_efivars && [ -z "$arg_no_variables" ]; then
-		val="$(bli_efi_var_get "LoaderEntryDefault")"
-	fi
-	[ -n "$val" ] || val="$(grubenv_get "default")"
-	[ -n "$val" ] || val="$(get_default_bootctl)"
-	[ -z "$val" ] || echo "$val"
-}
-
 get_default_entry()
 {
-	if is_sdboot; then
-		get_default_sdboot
-	elif is_grub2_bls; then
-		get_default_grub2_bls
-	else
-		err "Bootloader not detected"
-	fi
+	local no_nvram=()
+	[ -z "$arg_no_variables" ] || no_nvram=(--no-nvram)
+
+	local val
+	val="$(update-bootloader "${no_nvram[@]}" --get-default)"
+	# nothing is configured, so the answer is the entry that wins on
+	# its own
+	[ -n "$val" ] || val="$(get_default_bootctl)"
+	[ -z "$val" ] || echo "$val"
 }
 
 # The snapshot that the boot loader is going to boot, which is not
