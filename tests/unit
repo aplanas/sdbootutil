@@ -485,8 +485,8 @@ t_get_timeout_no_variables()
 	is "arguments" "--no-nvram --get-timeout" "$(get_timeout)"
 }
 
-# get_default_entry: the same command line, plus the fall back to the
-# entry that boots when nothing is configured
+# get_default_entry: the same command line, and nothing behind it -- an
+# entry nobody configured is not a default
 
 t_get_default_delegates()
 {
@@ -506,13 +506,13 @@ t_get_default_no_variables()
 	is "arguments" "--no-nvram --get-default" "$(get_default_entry)"
 }
 
-t_get_default_bootctl()
+t_get_default_unset()
 {
 	load
 	update-bootloader() { :; }
-	get_default_bootctl() { echo "the-entry.conf"; }
+	get_default_bootctl() { echo "the-entry-that-wins.conf"; }
 
-	is "entry" "the-entry.conf" "$(get_default_entry)"
+	is "entry" "" "$(get_default_entry)"
 }
 
 ####### the runner #######
@@ -578,7 +578,7 @@ done <<-'EOF'
 	t_get_timeout_no_variables  get_timeout turns --no-variables into --no-nvram
 	t_get_default_delegates     get_default_entry asks update-bootloader
 	t_get_default_no_variables  get_default_entry turns --no-variables into --no-nvram
-	t_get_default_bootctl       get_default_entry falls back to the entry that boots
+	t_get_default_unset         get_default_entry says nothing when no default is configured
 EOF
 
 echo

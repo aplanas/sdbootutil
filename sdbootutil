@@ -3249,6 +3249,10 @@ set_default_entry()
 	update_predictions=1
 }
 
+# The entry bootctl would boot next, which is its own choice: the one
+# shot, else what is configured, else the first entry of its order.
+# That is not an answer to "what is the default", and under grub2-bls
+# not even the order the boot loader reads
 get_default_bootctl()
 {
 	update_entries_for_this_system
@@ -3260,12 +3264,7 @@ get_default_entry()
 	local no_nvram=()
 	[ -z "$arg_no_variables" ] || no_nvram=(--no-nvram)
 
-	local val
-	val="$(update-bootloader "${no_nvram[@]}" --get-default)"
-	# nothing is configured, so the answer is the entry that wins on
-	# its own
-	[ -n "$val" ] || val="$(get_default_bootctl)"
-	[ -z "$val" ] || echo "$val"
+	update-bootloader "${no_nvram[@]}" --get-default
 }
 
 # The snapshot that the boot loader is going to boot, which is not
