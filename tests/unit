@@ -510,9 +510,58 @@ t_get_default_unset()
 {
 	load
 	update-bootloader() { :; }
-	get_default_bootctl() { echo "the-entry-that-wins.conf"; }
 
 	is "entry" "" "$(get_default_entry)"
+}
+
+# remove_kernel: the default is rewritten only when the entry that went
+# away was the one named by it.  Everything around the decision is
+# stubbed -- the entry name, the unlink, and the write
+
+rk_case()
+{
+	load
+	# shellcheck disable=SC2034  # read by the sourced library
+	TRANSACTIONAL_UPDATE=""
+	settle_entry_token() { :; }
+	entry_conf_file() { echo "$removed"; }
+	bootctl() { :; }
+	get_default_entry() { echo "$configured"; }
+	set_default_entry() { echo "set_default_entry ${1:-<no argument>}"; }
+
+	# `info` and `dbg_var` write to stderr, so the only thing on
+	# stdout is what the stub above prints
+	remove_kernel "" 7.2.3-1-default
+}
+
+t_rk_default()
+{
+	removed="the-entry-10.conf" configured="the-entry-10.conf"
+
+	is "written" "set_default_entry <no argument>" "$(rk_case)"
+}
+
+t_rk_other()
+{
+	removed="the-entry-10.conf" configured="the-entry-11.conf"
+
+	is "written" "" "$(rk_case)"
+}
+
+# grub2-bls names the entry with the boot counter it has not spent yet,
+# and the default without it
+t_rk_counter()
+{
+	removed="the-entry-10+3.conf" configured="the-entry-10"
+
+	is "written" "set_default_entry <no argument>" "$(rk_case)"
+}
+
+t_rk_unset()
+{
+	removed="the-entry-10.conf" configured=""
+
+	is "written" "" "$(rk_case)"
 }
 
 ####### the runner #######
@@ -579,6 +628,10 @@ done <<-'EOF'
 	t_get_default_delegates     get_default_entry asks update-bootloader
 	t_get_default_no_variables  get_default_entry turns --no-variables into --no-nvram
 	t_get_default_unset         get_default_entry says nothing when no default is configured
+	t_rk_default                remove_kernel picks a new default when it removed the old one
+	t_rk_other                  remove_kernel leaves a default that names another entry
+	t_rk_counter                remove_kernel matches the default across the boot counter
+	t_rk_unset                  remove_kernel sets no default when none was configured
 EOF
 
 echo

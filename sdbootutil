@@ -1324,15 +1324,16 @@ remove_kernel()
 	info "Removing boot entry $id"
 	bootctl unlink "$id"
 
-	# If we remove the default entry, `bootctl` will mark a new
-	# default, but we still need to update the EFI var (or the
-	# grubenv value)
-	local default
-	default="$(get_default_bootctl)"
-	if [ -z "$default" ]; then
-		warn "Can't determine the new default entry"
-	else
-		set_default_entry "$default"
+	# `bootctl unlink` writes no default: it says "is the default
+	# boot entry" and leaves the EFI variable naming the entry it
+	# deleted.  Asking it which one is default now does not help
+	# either, as it keeps answering with the deleted one, read back
+	# from the menu the boot loader published at the last boot.  So
+	# the new default is chosen here, and only when we took the old
+	# one away: both loaders fall back to their own order, but the
+	# stale name is what `get-default` would keep reporting
+	if [ "$(entry_key "$(get_default_entry)")" = "$(entry_key "$id")" ]; then
+		set_default_entry
 	fi
 
 	# This action will require to update the PCR predictions
@@ -3238,16 +3239,6 @@ set_default_entry()
 
 	# This action will require to update the PCR predictions
 	update_predictions=1
-}
-
-# The entry bootctl would boot next, which is its own choice: the one
-# shot, else what is configured, else the first entry of its order.
-# That is not an answer to "what is the default", and under grub2-bls
-# not even the order the boot loader reads
-get_default_bootctl()
-{
-	update_entries_for_this_system
-	jq -r '.[] | select(.isDefault == true) | .id' < "$entryfile"
 }
 
 get_default_entry()
